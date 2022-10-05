@@ -2549,6 +2549,96 @@ describe('parser', () => {
       i18nextParser.end(fakeFile)
     })
 
+    describe('process exit 1', () => {
+      beforeEach(() => {
+        sinon
+          .stub(process, 'exit')
+          .onFirstCall()
+          .callsFake((code) => {
+            assert.equal(code, 1)
+            process.exit(0)
+          })
+      })
+
+      afterEach(() => {
+        process.exit.restore()
+      })
+
+      it.only('emits a `error` event when fail-on-warning is set', (done) => {
+        const i18nextParser = new i18nTransform({
+          output: 'test/locales/$LOCALE/$NAMESPACE.json',
+          failOnWarnings: true,
+        })
+        const fakeFile = new Vinyl({
+          contents: fs.readFileSync(path.resolve(__dirname, 'cli/html.html')),
+          path: 'file.html',
+        })
+
+        i18nextParser.on('error', (message) => {
+          assert.equal(
+            message,
+            'Warnings were triggered and failOnWarnings option is enabled. Exiting...'
+          )
+
+          done()
+        })
+
+        i18nextParser.on('end', () => {
+          done()
+        })
+
+        i18nextParser.end(fakeFile)
+      })
+    })
+
+    describe('process exit 0', () => {
+      beforeEach(() => {
+        sinon
+          .stub(process, 'exit')
+          .onFirstCall()
+          .callsFake((code) => {
+            process.exit(0)
+          })
+      })
+
+      afterEach(() => {
+        process.exit.restore()
+      })
+
+      it.only('does not emits a `error` event when fail-on-update is set but no changes', (done) => {
+        let failed = false
+        const i18nextParser1 = new i18nTransform({
+          output: 'test/locales/$LOCALE/$NAMESPACE.json',
+          failOnUpdate: false,
+        })
+        const fakeFile1 = new Vinyl({
+          contents: fs.readFileSync(path.resolve(__dirname, 'cli/html.html')),
+          path: 'file.html',
+        })
+
+        i18nextParser1.end(fakeFile1)
+
+        const i18nextParser2 = new i18nTransform({
+          output: 'test/locales/$LOCALE/$NAMESPACE.json',
+          failOnUpdate: true,
+        })
+
+        i18nextParser2.on('error', (message) => {
+          if (
+            message ==
+            'Some translations was updated and failOnUpdate option is enabled. Exiting...'
+          ) {
+            failed = true
+          }
+        })
+
+        i18nextParser2.end(fakeFile1)
+
+        assert.isFalse(failed)
+        done()
+      })
+    })
+
     it('emits a `warning` event if a key contains a variable', (done) => {
       const i18nextParser = new i18nTransform({
         output: 'test/locales/$LOCALE/$NAMESPACE.json',
